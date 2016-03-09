@@ -49,7 +49,8 @@ var iteration = clockIcons_38.length - 1;
 // Faux promises for enabling/disabling UI
 var setBlacklisted = function () {
     console.log("setBlacklisted");
-    setActiveBasedOnBlacklistedProperty(displayUIBasedOnContext);
+    setActiveBasedOnBlacklistedProperty();
+    //setActiveBasedOnBlacklistedProperty(displayUIBasedOnContext);
 };
 var setInitialStateWithChecks = function () {
     console.log("setInitialStateWithChecks");
@@ -70,6 +71,7 @@ function setActiveBasedOnDisabledProperty(cb) {
 }
 
 function setActiveBasedOnBlacklistedProperty(cb) {
+    console.log("SetActiveBasedOnBlackListed");
     chrome.storage.local.get('blacklist', function (items) {
         var inBlacklist = false;
         if (!items.blacklist) {
@@ -93,6 +95,112 @@ function setActiveBasedOnBlacklistedProperty(cb) {
 
 var jsonizedMementos = '[';
 var jsonizedMementos;
+
+
+chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
+    if (debug) {
+        console.log('in listener with ' + request.method);
+        console.log('in listener with ' + sender.tab);
+    }
+
+
+
+    if (request.method === 'addToBlacklist') {
+        getBlacklist(addToBlacklist, request.uri); // And add uri
+        return;
+    }
+
+    if (request.method === 'stopAnimatingBrowserActionIcon') {
+        clearTimeout(animationTimer);
+        animateBrowserActionIcon = false;
+        return;
+    }
+
+    if (request.method === 'showArchiveNowUI') {
+        if (debug) {
+            console.log('Hide logo here');
+        }
+        logoInFocus = true;
+        hideLogo = true;
+
+        return;
+    }
+
+    if(request.method === 'startTimer'){
+        if(debug){
+            console.log("Got startTimer");
+        }
+        chrome.runtime.sendMessage({
+            method: 'setBadge', text: '', iconPath: {
+                '38': clockIcons_38[clockIcons_38.length - 1],
+                '19': clockIcons_19[clockIcons_19.length - 1]
+            }
+        });
+
+        chrome.runtime.sendMessage({method: 'setBadgeText', text: ''}, function (response) {
+        });
+
+        animateBrowserActionIcon = true;
+
+        setTimeout(animatePageActionIcon, 500);
+    }
+
+    if(request.method === 'displayUIStoredTM'){
+        if(debug){
+            console.log("got message displayUIStoredTM");
+        }
+        displayUIBasedOnStoredTimeMap(request.data);
+
+    }
+
+    if (request.method === 'displayThisMementoData') {
+        //Parse the data received from the secure source and display the number of mementos
+        if (request.data.timemap_uri) { // e.g., twitter.com
+            chrome.runtime.sendMessage({
+                method: 'fetchSecureSitesTimeMap',
+                value: request.data.timemap_uri.json_format
+            }, function (response) {
+                if (debug) {
+                    console.log('We have a response!');
+                } // This will not occur due to async exec in mink.js
+            });
+
+            return;
+        }
+        console.log('creating new TM');
+        var tm = new Timemap(request.data);
+        //displayUIBasedOnTimemap(tm);
+
+        return;
+    }
+
+    if (request.method === 'displayUI') {
+        if (debug) {
+            console.log("Got displayUI message");
+        }
+        displayUIBasedOnContext();
+    }
+
+    if (request.method === 'getMementos') {
+        if (debug) {
+            console.log("Got displayUI message");
+        }
+        getMementos(request.uri);
+    }
+
+    if (request.method === 'showViewingMementoInterface') {
+        if (debug) {
+            console.log('We will show the "return to live web" interface but it is not implemented yet');
+        }
+        return;
+    }
+
+    if (debug) {
+        console.log('ppp');
+    }
+    //displayUIBasedOnContext();
+});
+
 
 function addToHistory(uri_r, memento_datetime, mementos, callback) {
     var mementosToStore = mementos;
@@ -326,106 +434,6 @@ function addToBlacklist(currentBlacklist, uriIn) {
 }
 
 
-chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
-    if (debug) {
-        console.log('in listener with ' + request.method);
-    }
-
-    if (request.method === 'addToBlacklist') {
-        getBlacklist(addToBlacklist, request.uri); // And add uri
-        return;
-    }
-
-    if (request.method === 'stopAnimatingBrowserActionIcon') {
-        clearTimeout(animationTimer);
-        animateBrowserActionIcon = false;
-        return;
-    }
-
-    if (request.method === 'showArchiveNowUI') {
-        if (debug) {
-            console.log('Hide logo here');
-        }
-        logoInFocus = true;
-        hideLogo = true;
-
-        return;
-    }
-
-    if(request.method == 'startTimer'){
-        if(debug){
-            console.log("Got startTimer");
-        }
-        chrome.runtime.sendMessage({
-            method: 'setBadge', text: '', iconPath: {
-                '38': clockIcons_38[clockIcons_38.length - 1],
-                '19': clockIcons_19[clockIcons_19.length - 1]
-            }
-        });
-
-        chrome.runtime.sendMessage({method: 'setBadgeText', text: ''}, function (response) {
-        });
-
-        animateBrowserActionIcon = true;
-
-        setTimeout(animatePageActionIcon, 500);
-    }
-
-    if(request.method == 'displayUIStoredTM'){
-        if(debug){
-            console.log("got message displayUIStoredTM");
-        }
-        displayUIBasedOnStoredTimeMap(request.data);
-
-    }
-
-    if (request.method === 'displayThisMementoData') {
-        //Parse the data received from the secure source and display the number of mementos
-        if (request.data.timemap_uri) { // e.g., twitter.com
-            chrome.runtime.sendMessage({
-                method: 'fetchSecureSitesTimeMap',
-                value: request.data.timemap_uri.json_format
-            }, function (response) {
-                if (debug) {
-                    console.log('We have a response!');
-                } // This will not occur due to async exec in mink.js
-            });
-
-            return;
-        }
-        console.log('creating new TM');
-        var tm = new Timemap(request.data);
-        //displayUIBasedOnTimemap(tm);
-
-        return;
-    }
-
-    if (request.method === 'displayUI') {
-        if (debug) {
-            console.log("Got displayUI message");
-        }
-        displayUIBasedOnContext();
-    }
-
-    if (request.method === 'getMementos') {
-        if (debug) {
-            console.log("Got displayUI message");
-        }
-        displayUIBasedOnContext();
-    }
-
-    if (request.method === 'showViewingMementoInterface') {
-        if (debug) {
-            console.log('We will show the "return to live web" interface but it is not implemented yet');
-        }
-        return;
-    }
-
-    if (debug) {
-        console.log('ppp');
-    }
-    //displayUIBasedOnContext();
-});
 
 
 

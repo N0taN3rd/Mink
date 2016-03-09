@@ -197,8 +197,15 @@ chrome.runtime.onMessage.addListener(
             stopWatchingRequests();
         }else if(request.method == 'stopWatchingRequests_blacklisted') {
             stopWatchingRequests_blacklisted();
-        } else if (request.method == 'checkHeaders'){
+        } else if (request.method == 'headersTMCached'){
                 //checkHeaders(request.headers);
+            console.log("Got headersTMCached");
+            chrome.tabs.sendMessage(tabs[0].id, {
+                'method': 'displayUIStoredTM',
+                'data': request.data
+            });
+        } else if(request.method == 'noLink') {
+            console.log("noLink");
         } else if(request.method == 'getMementosForHTTPSSource') {
             //ideally, we would talk to an HTTPS version of the aggregator,
             // instead, we will communicate with Mink's bg script to get around scheme issue
@@ -496,7 +503,7 @@ function showArchiveNowUI(){
 }
 
 chrome.webRequest.onCompleted.addListener(function(deets){
-        if(debug){console.log('*************');}
+        if(debug){console.log('*************',deets);}
         chrome.tabs.query({
             'active': true,
             'currentWindow': true
@@ -516,6 +523,7 @@ chrome.webRequest.onHeadersReceived.addListener(function(deets) {
         var headers = deets.responseHeaders;
         var mementoDateTimeHeader;
         var linkHeaderAsString;
+
 
         // Enumerate through the HTTP response headers to grab those related to Memento (if applicable)
         for(var headerI = 0; headerI < headers.length; headerI++){
@@ -538,11 +546,11 @@ chrome.webRequest.onHeadersReceived.addListener(function(deets) {
                 console.log(linkHeaderAsString);
             }
             chrome.storage.local.get('timemaps',function(tms) {
-                if(!tms.timemaps.hasOwnProperty(url)){
-                    var linkHeaderHasMementoData = false;
-
-
-                    var tm = new Timemap(linkHeaderAsString);
+                var linkHeaderHasMementoData = false;
+                var tm;
+                if(Object.keys(tms).length === 0){
+                    console.log("tms is undefed or null");
+                    tm = new Timemap(linkHeaderAsString);
                     if(debug){console.log('TG?: ' + tm.timegate);}
                     //mementoguide logic
                     if(tm.timegate) { //specified own TimeGate, query this
@@ -567,42 +575,107 @@ chrome.webRequest.onHeadersReceived.addListener(function(deets) {
                     console.log('#204: bar');
                     setTimemapInStorage(tm, url);
                 } else {
-                    console.log("We have some ");
-                    chrome.tabs.query({
-                        'active': true,
-                        'currentWindow': true
-                    }, function (tabs) {
-                        console.log("displayUI");
-                        chrome.tabs.sendMessage(tabs[0].id, {
-                            'method': 'displayUI',
-                            'uri': url
-                        });
-                    });
+                    if(!tms.timemaps.hasOwnProperty(url)){
+                        tm = new Timemap(linkHeaderAsString);
+                        if(debug){console.log('TG?: ' + tm.timegate);}
+                        //mementoguide logic
+                        if(tm.timegate) { //specified own TimeGate, query this
+                            findTMURI(tm.timegate,deets.tabId);
+                            linkHeaderHasMementoData = true;
+                            return;
+                        }
 
+                        if(mementoDateTimeHeader){
+                            tm.datetime = mementoDateTimeHeader;
+                            linkHeaderHasMementoData = true;
+                        }
+
+                        if(!linkHeaderHasMementoData) { // Had a link header sans Memento data
+                            return;
+                        }
+
+                        if(tm.timemap && !mementoDateTimeHeader) { // e.g., w3c wiki
+                            fetchTimeMap(tm.timemap, deets.tabId);
+                            return;
+                        }
+                        console.log('#204: bar');
+                        setTimemapInStorage(tm, url);
+                    } else {
+                        console.log("We have some ",tms);
+                        chrome.tabs.query({
+                            'active': true,
+                            'currentWindow': true
+                        }, function (tabs) {
+                            console.log("displayUI",tabs);
+                            chrome.tabs.sendMessage(tabs[0].id, {
+                                'method': 'displayUI'
+                            }, function (response) {
+                                console.log(response);
+                            });
+                        });
+                        //useCachedTM(tms.timemaps[url]);
+
+
+                    }
                 }
+
             });
 
         } else {
             if(debug){console.log('The current page did not send a link header');}
+            //noLinkHeaders(url);
             chrome.tabs.query({
                 'active': true,
                 'currentWindow': true
             }, function (tabs) {
-                console.log("getMementos");
+                console.log("displayUI",tabs);
+
                 chrome.tabs.sendMessage(tabs[0].id, {
-                    'method': 'getMementos',
+                    'method': 'displayUI',
                     'uri': url
+                }, function (response) {
+                    console.log(response);
                 });
             });
-
         }
 
 
     },
     {urls: ['<all_urls>'],types: ['main_frame']},['responseHeaders']);
 
+function noLinkHeaders(url){
+    console.log("No link headers");
+    chrome.tabs.query({
+        'active': true,
+        'currentWindow': true
+    }, function (tabs) {
+        console.log("getMementos",tabs);
 
+        chrome.tabs.sendMessage(tabs[0].id, {
+            'method': 'getMementos',
+            'uri': url
+        }, function (response) {
+            console.log(response);
+        });
+    });
+}
 
+function useCachedTM(tm){
+    console.log(tm);
+    chrome.tabs.query({
+        'active': true,
+        'currentWindow': true
+    }, function (tabs) {
+        console.log("displayUI",tabs);
+        chrome.tabs.sendMessage(tabs[0].id, {
+            'method': 'displayUIStoredTM',
+            'data': tm
+        }, function (response) {
+            console.log(response);
+        });
+    });
+
+}
 
 function createTimemapFromURI(uri, tabId,accumulatedArrayOfTimemaps) {
     console.log('creatTimemapFromURI() - includes write to localstorage');

@@ -67,7 +67,8 @@
         "style.css",
         "font-awesome-4.0.3/css/font-awesome-modified.css",
         "jquery.miller.js/css/jquery.miller.css"
-      ]
+      ],
+      "run_at": "document_start"
     }
   ],
   "content_security_policy": "script-src 'self' https://ssl.google-analytics.com; object-src 'self'",
