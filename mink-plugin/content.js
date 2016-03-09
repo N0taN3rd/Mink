@@ -73,7 +73,7 @@ function setActiveBasedOnBlacklistedProperty(cb) {
     chrome.storage.local.get('blacklist', function (items) {
         var inBlacklist = false;
         if (!items.blacklist) {
-            cb();
+            //cb();
             return;
         }
 
@@ -86,7 +86,7 @@ function setActiveBasedOnBlacklistedProperty(cb) {
             }
         }
 
-        cb();
+        //cb();
     });
 }
 

@@ -197,7 +197,9 @@ chrome.runtime.onMessage.addListener(
             stopWatchingRequests();
         }else if(request.method == 'stopWatchingRequests_blacklisted') {
             stopWatchingRequests_blacklisted();
-        }else if(request.method == 'getMementosForHTTPSSource') {
+        } else if (request.method == 'checkHeaders'){
+                checkHeaders(request.headers);
+        } else if(request.method == 'getMementosForHTTPSSource') {
             //ideally, we would talk to an HTTPS version of the aggregator,
             // instead, we will communicate with Mink's bg script to get around scheme issue
             var uri = 'http' + request.value.substr(4);
