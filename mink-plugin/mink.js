@@ -198,7 +198,7 @@ chrome.runtime.onMessage.addListener(
         }else if(request.method == 'stopWatchingRequests_blacklisted') {
             stopWatchingRequests_blacklisted();
         } else if (request.method == 'checkHeaders'){
-                checkHeaders(request.headers);
+                //checkHeaders(request.headers);
         } else if(request.method == 'getMementosForHTTPSSource') {
             //ideally, we would talk to an HTTPS version of the aggregator,
             // instead, we will communicate with Mink's bg script to get around scheme issue
@@ -568,6 +568,16 @@ chrome.webRequest.onHeadersReceived.addListener(function(deets) {
                     setTimemapInStorage(tm, url);
                 } else {
                     console.log("We have some ");
+                    chrome.tabs.query({
+                        'active': true,
+                        'currentWindow': true
+                    }, function (tabs) {
+                        console.log("displayUI");
+                        chrome.tabs.sendMessage(tabs[0].id, {
+                            'method': 'displayUI',
+                            'uri': url
+                        });
+                    });
 
                 }
             });

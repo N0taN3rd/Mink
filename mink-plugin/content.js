@@ -400,11 +400,17 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
         return;
     }
 
+    if (request.method === 'displayUI') {
+        if (debug) {
+            console.log("Got displayUI message");
+        }
+        displayUIBasedOnContext();
+    }
+
     if (request.method === 'getMementos') {
         if (debug) {
             console.log("Got displayUI message");
         }
-        //getMementos(request.uri);
         displayUIBasedOnContext();
     }
 
