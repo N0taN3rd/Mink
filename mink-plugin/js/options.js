@@ -73,7 +73,7 @@ $("#timegate").change(function(){
 		var str = "";
 		for(var option in options){
 			try{
-				str += $(options[option]).html() +"\r\n"
+				str += $(options[option]).html() +"\r\n";
 			}
 			catch(err){
 				break;

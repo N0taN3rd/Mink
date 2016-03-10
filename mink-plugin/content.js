@@ -46,6 +46,7 @@ var iteration = clockIcons_38.length - 1;
 
 // Faux promises for enabling/disabling UI
 var setBlacklisted = function () {
+   //no longer display ui callback here because waiting for headers to be checked
    setActiveBasedOnBlacklistedProperty();
 };
 var setInitialStateWithChecks = function () {
@@ -125,12 +126,9 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
             '19': clockIcons_19[clockIcons_19.length - 1]
          }
       });
-
       chrome.runtime.sendMessage({method: 'setBadgeText', text: ''}, function (response) {
       });
-
       animateBrowserActionIcon = true;
-
       setTimeout(animatePageActionIcon, 500);
    }
 
@@ -255,9 +253,15 @@ function displayUIBasedOnContext() {
    }
    chrome.storage.local.get('timemaps', function (items) {
       var hasATimeMapInCache = items.timemaps && items.timemaps[document.URL];
-
+      if(debug){
+         console.log("has tm in cache? ",hasATimeMapInCache);
+         console.log("has tm in cache? ",items);
+         console.log("has tm in cache? ",items.timemaps);
+         console.log("has tm in cache? ",document.URL);
+      }
       if (hasATimeMapInCache) {
          var isAMemento = items.timemaps[document.URL].datetime;
+
 
          if (isAMemento) {
             chrome.runtime.sendMessage({

@@ -167,10 +167,10 @@ function displayMinkUI(tabId) {
 chrome.runtime.onMessage.addListener(
    function (request, sender, sendResponse) {
 
-      if (debug) {
-         console.log("In mink.js got message the request is ", request);
-         console.log("In mink.js got message the sender is ", sender);
-      }
+      //if (debug) {
+      //   console.log("In mink.js got message the request is ", request);
+      //   console.log("In mink.js got message the sender is ", sender);
+      //}
 
       if (request.method == 'store') {
          localStorage.setItem('minkURI', request.value);
@@ -242,9 +242,9 @@ chrome.runtime.onMessage.addListener(
 
          }).fail(function (xhr, textStatus, error) {
             if (debug) {
-               //console.log('There was an error from mink.js');
-               //console.log(textStatus);
-               //console.log(error);
+               console.log('There was an error from mink.js');
+               console.log(textStatus);
+               console.log(error);
             }
             if (error == 'Not Found') {
                //console.log('We have '+[].length+' mementos from the call to the archives using an HTTPS source!');
@@ -592,6 +592,7 @@ chrome.webRequest.onHeadersReceived.addListener(function (deets) {
          }
          chrome.storage.local.get('timemaps', function (tms) {
             //check if we have the timemap in the cache
+            //cover the first time we hit the cache(empty obj) or we have a cache but our url is not in it
             if (Object.keys(tms).length === 0 || !tms.timemaps.hasOwnProperty(url)) {
                //no get the timemap from link header
                if (debug) {
@@ -604,6 +605,9 @@ chrome.webRequest.onHeadersReceived.addListener(function (deets) {
                }
 
                if (tm.timegate) { //specified own TimeGate, query this
+                  if(debug){
+                     //console.log("Tim");
+                  }
                   findTMURI(tm.timegate, deets.tabId);
                   linkHeaderHasMementoData = true;
                   return;
@@ -628,6 +632,7 @@ chrome.webRequest.onHeadersReceived.addListener(function (deets) {
                if (debug) {
                   console.log("We have some ", tms);
                }
+               //tell content to displayUI
                chrome.tabs.query({
                   'active': true,
                   'currentWindow': true
@@ -660,20 +665,21 @@ function createTimemapFromURI(uri, tabId, accumulatedArrayOfTimemaps) {
    if(debug){
       console.log('creatTimemapFromURI() - includes write to localstorage');
    }
+   //the intial call of this function makes this null
    if (!accumulatedArrayOfTimemaps) {
       accumulatedArrayOfTimemaps = [];
    }
 
    $.ajax({
       url: uri,
-      type: 'GET' /* The payload is in the response body, not the head */
+      type: 'GET' /* asking for json for mementoweb fails every time */
    }).done(function (data, textStatus, xhr) {
       if (xhr.status === 200) {
-         console.log('creating new tm ll');
-
+         if (debug){
+            console.log('creating new tm ll');
+         }
+         //make the time map
          var tm = new Timemap(data);
-         // Move data from tm.mementos as array to tm.mementos as an object and
-         //  tm.mementos.list as array to conform to JSON API from LANL aggregator
          var mementosFromTimeMap = tm.mementos;
          tm.mementos = null;
          tm.mementos = {};
@@ -686,24 +692,29 @@ function createTimemapFromURI(uri, tabId, accumulatedArrayOfTimemaps) {
             }
             return createTimemapFromURI(tm.timemap, tabId, accumulatedArrayOfTimemaps.concat(tm));
          } else {
-            accumulatedArrayOfTimemaps.push(tm);
-            var firstTm = accumulatedArrayOfTimemaps[0];
+            //create single timemap from original
+            accumulatedArrayOfTimemaps.push(tm);//add final timemap
+            var firstTm = accumulatedArrayOfTimemaps[0];//get the first one
             accumulatedArrayOfTimemaps.slice(1, accumulatedArrayOfTimemaps.length)
-               .forEach(function (elem) {
+               .forEach(function (elem) {//for all other tm, add them to the firsts list
                   firstTm.mementos.list = firstTm.mementos.list.concat(elem.mementos.list);
                });
             if(debug){
                console.log("tm.timemap && tm.self.... else ");
                console.log("First TimeMap", firstTm);
+               console.log("First TimeMap", firstTm.original);
                console.log(accumulatedArrayOfTimemaps);
             }
-
-            console.log(firstTm);
+            //put them in the cache and tell content to display the ui
             setTimemapInStorage(firstTm, firstTm.original);
+            //send two messages first stop animation then display stored
+            //if use displayUIBasedOnContext the correctly gotten items wont be display
+            //rather we will ask memgator.cs for mementos
+            chrome.tabs.sendMessage(tabId,{'method':'stopAnimatingBrowserActionIcon'});
             chrome.tabs.sendMessage(tabId, {
-               'method': 'displayUI'
+               'method': 'displayUIStoredTM',
+               'data': firstTm
             });
-
          }
       }
    });
@@ -719,12 +730,13 @@ function findTMURI(uri, tabid) {
    $.ajax({
       url: uri
    }).done(function (data, status, xhr) {
+      //get the first timemap
       var tmX = new Timemap(xhr.getResponseHeader('link'));
       if (debug) {
          console.warn(tmX.timemap);
          console.log(tmX);
       }
-
+      //tell content to start the timer
       chrome.tabs.query({
          'active': true,
          'currentWindow': true
@@ -733,10 +745,8 @@ function findTMURI(uri, tabid) {
             'method': 'startTimer'
          });
       });
-
+      //get the paginated list of timemaps
       Promise.resolve(createTimemapFromURI(tmX.timemap, tabid));
-
-
    }).fail(function (xhr, status, err) {
       if (debug) {
          console.error('Querying the tm ' + uri + ' failed');
