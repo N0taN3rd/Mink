@@ -100,6 +100,19 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
       return;
    }
 
+
+   if(request.method == 'viewingAMemento'){
+      if (debug) {
+         console.log('got message viewingAMemento');
+      }
+      chrome.runtime.sendMessage({
+         method: 'setBadge', text: '', iconPath: {
+            '38': chrome.extension.getURL('images/mLogo38_isAMemento.png'),
+            '19': chrome.extension.getURL('images/mLogo19_isAMemento.png')
+         }
+      });
+      return;
+   }
    if (request.method === 'stopAnimatingBrowserActionIcon') {
       clearTimeout(animationTimer);
       animateBrowserActionIcon = false;
@@ -259,9 +272,13 @@ function displayUIBasedOnContext() {
          console.log("has tm in cache? ",items.timemaps);
          console.log("has tm in cache? ",document.URL);
       }
+      //if(debug){
+      //   console.log("Checking if isAMemento");
+      //   console.log(items.timemaps[document.URL].datetime);
+      //   console.log(items.timemaps[document.URL]);
+      //}
       if (hasATimeMapInCache) {
          var isAMemento = items.timemaps[document.URL].datetime;
-
 
          if (isAMemento) {
             chrome.runtime.sendMessage({
