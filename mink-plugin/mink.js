@@ -563,7 +563,31 @@ chrome.webRequest.onCompleted.addListener(function (deets) {
    },
    {urls: ['*://twitter.com/*/status/*'], types: ['xmlhttprequest']}, ['responseHeaders']);
 
+function displayUIBasedOnTabid(tabId){
+   if(tabId == -1){
+      if(debug){
+         console.log("tabID was -1");
+      }
+      chrome.tabs.query({
+         'active': true,
+         'currentWindow': true
+      }, function (tabs) {
+         chrome.tabs.sendMessage(tabs[0].id, {
+            'method': 'displayUI'
+         });
+      });
+   } else {
+      chrome.tabs.sendMessage(tabId, {
+         'method': 'displayUI'
+      });
+   }
+}
 
+chrome.webRequest.onErrorOccurred.addListener(function(deets){
+   console.log("An error occurred for a webrequest");
+   console.log("The details are ",deets);
+
+}, {urls: ['<all_urls>'], types: ['main_frame']});
 
 chrome.webRequest.onHeadersReceived.addListener(function (deets) {
    var url = deets.url;
@@ -574,7 +598,6 @@ chrome.webRequest.onHeadersReceived.addListener(function (deets) {
 
    // Enumerate through the HTTP response headers to grab those related to Memento (if applicable)
    for (var headerI = 0; headerI < headers.length; headerI++) {
-      console.log(headers[headerI]);
       if (headers[headerI].name == 'Memento-Datetime') {
          mementoDateTimeHeader = headers[headerI].value;
       } else if (headers[headerI].name == 'Link') {
@@ -584,33 +607,26 @@ chrome.webRequest.onHeadersReceived.addListener(function (deets) {
 
    if(debug){
       console.log("Checking uri for memento or timegate headers: "+url);
+      console.log(deets);
       console.log(headers);
       console.log("Do we have a linkHeader? ",linkHeaderAsString);
       console.log("Do we have a memento? ",mementoDateTimeHeader);
+      console.log("Which tab asked ",deets.tabId);
    }
 
-
-   //items.timemaps && items.timemaps[document.URL]
-   // && items.timemaps[document.URL].mementos && items.timemaps[document.URL].datetime
-
    /*
+    special consideration deets.tabId will be -1 if the request is not related to a tab
     case 1: no link header, no datetime
     case 2: link header, no datetime
     case 3: link header, datetime
     */
    if(!linkHeaderAsString && !mementoDateTimeHeader /*case1*/){
-      chrome.tabs.query({
-         'active': true,
-         'currentWindow': true
-      }, function (tabs) {
-         if(debug){
-            console.log("Case 1 no link header, no datetime");
-            console.log("Asking for displayUI");
-         }
-         chrome.tabs.sendMessage(tabs[0].id, {
-            'method': 'displayUI'
-         });
-      });
+      if(debug){
+         console.log("Case 1 no link header, no datetime");
+         console.log("Asking for displayUI");
+      }
+      displayUIBasedOnTabid(deets.tabId);
+
    } else if(linkHeaderAsString/*case2*/) {
       chrome.storage.local.get('timemaps',function(tms){
          var tm;
@@ -648,29 +664,16 @@ chrome.webRequest.onHeadersReceived.addListener(function (deets) {
                   fetchTimeMap(tm.timemap, deets.tabId);
                   specifiedTimemap = true;
                }
+
                if(!specifiedTimegate && !specifiedTimemap){
                   //case for when there is a link but nothing about memento is there
-                  chrome.tabs.query({
-                     'active': true,
-                     'currentWindow': true
-                  }, function (tabs) {
-                     chrome.tabs.sendMessage(tabs[0].id, {
-                        'method': 'displayUI'
-                     });
-                  });
+                  displayUIBasedOnTabid(deets.tabId);
                }
             } else {
                if(debug){
                   console.log("case 2 and we have cache just show ui");
                }
-               chrome.tabs.query({
-                  'active': true,
-                  'currentWindow': true
-               }, function (tabs) {
-                  chrome.tabs.sendMessage(tabs[0].id, {
-                     'method': 'displayUI'
-                  });
-               });
+               displayUIBasedOnTabid(deets.tabId);
             }
          } else /*case 3*/{
             tm = new Timemap(linkHeaderAsString);
@@ -687,14 +690,7 @@ chrome.webRequest.onHeadersReceived.addListener(function (deets) {
              mink.js function to complete before asking content.js for anything.
              */
             setTimemapInStorageAndCall(tm,url,function(){
-               chrome.tabs.query({
-                  'active': true,
-                  'currentWindow': true
-               }, function (tabs) {
-                  chrome.tabs.sendMessage(tabs[0].id, {
-                     'method': 'displayUI'
-                  });
-               });
+               displayUIBasedOnTabid(deets.tabId);
             });
          }
       });
