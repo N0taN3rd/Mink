@@ -599,14 +599,14 @@ chrome.webRequest.onHeadersReceived.addListener(function (deets) {
     case 3: link header, datetime
     */
    if(!linkHeaderAsString && !mementoDateTimeHeader /*case1*/){
-      if(debug){
-         console.log("Case 1 no link header, no datetime");
-      }
       chrome.tabs.query({
          'active': true,
          'currentWindow': true
       }, function (tabs) {
-         console.log("Asking for displayUI");
+         if(debug){
+            console.log("Case 1 no link header, no datetime");
+            console.log("Asking for displayUI");
+         }
          chrome.tabs.sendMessage(tabs[0].id, {
             'method': 'displayUI'
          });
@@ -614,6 +614,8 @@ chrome.webRequest.onHeadersReceived.addListener(function (deets) {
    } else if(linkHeaderAsString/*case2*/) {
       chrome.storage.local.get('timemaps',function(tms){
          var tm;
+         //empty object for when cache is empty ie first time
+         //check if the timemaps has our url
          var notStoredInCache = Object.keys(tms).length === 0 || !tms.timemaps.hasOwnProperty(url);
          if(debug){
             console.log("did we hit the cache? ",notStoredInCache);
@@ -677,6 +679,13 @@ chrome.webRequest.onHeadersReceived.addListener(function (deets) {
                console.log("case 3: link header, datetime");
                console.log(tm);
             }
+            /*
+             this new function is for when we are viewing a memento
+             since displayMinkUI.js relies on datetime to be in the tm stored
+             in the cache we put in there and ask for content.js to display the ui.
+             Since webheader check is now the telling everything when to go we must wait for
+             mink.js function to complete before asking content.js for anything.
+             */
             setTimemapInStorageAndCall(tm,url,function(){
                chrome.tabs.query({
                   'active': true,
@@ -694,176 +703,7 @@ chrome.webRequest.onHeadersReceived.addListener(function (deets) {
 
 
 
-   //
-   //if(linkHeaderAsString){
-   //
-   //   chrome.storage.local.get('timemaps',function(tms) {
-   //      if(debug){
-   //         console.log("We have link!!!!");
-   //         console.log(linkHeaderAsString);
-   //      }
-   //      var tm;
-   //      var notStoredInCache = Object.keys(tms).length === 0 || !tms.timemaps.hasOwnProperty(url);
-   //      console.log(notStoredInCache);
-   //      if(notStoredInCache){
-   //         var specifiedTimegate = false;
-   //         if(debug){
-   //            console.log("putting link header specified into cache");
-   //         }
-   //         tm = new Timemap(linkHeaderAsString);
-   //
-   //         if (debug) {
-   //            console.log('TG?: ' + tm.timegate);
-   //         }
-   //         if (mementoDateTimeHeader) {
-   //            tm.datetime = mementoDateTimeHeader;
-   //            //linkHeaderHasMementoData = true;
-   //         }
-   //         if (tm.timegate) { //specified own TimeGate, query this
-   //            if(debug){
-   //               console.log("Specified Timegate");
-   //            }
-   //            specifiedTimegate = true;
-   //            findTMURI(tm.timegate, deets.tabId);
-   //         }
-   //
-   //         if (tm.timemap && !specifiedTimegate) { // e.g., w3c wiki
-   //            fetchTimeMap(tm.timemap, deets.tabId);
-   //            console.log('#204: bar');
-   //         }
-   //         if(mementoDateTimeHeader){
-   //            setTimemapInStorage(tm,url);
-   //         }
-   //      } else {
-   //
-   //         if(mementoDateTimeHeader){
-   //            tm = new Timemap(linkHeaderAsString);
-   //            tm.datetime = mementoDateTimeHeader;
-   //            console.log(tm);
-   //            setTimemapInStorage(tm,url);
-   //         }
-   //            chrome.tabs.query({
-   //               'active': true,
-   //               'currentWindow': true
-   //            }, function (tabs) {
-   //               chrome.tabs.sendMessage(tabs[0].id, {
-   //                  'method': 'displayUI'
-   //               });
-   //            });
-   //
-   //      }
-   //   });
-   //} else {
-   //   chrome.tabs.query({
-   //      'active': true,
-   //      'currentWindow': true
-   //   }, function (tabs) {
-   //      chrome.tabs.sendMessage(tabs[0].id, {
-   //         'method': 'displayUI'
-   //      });
-   //   });
-   //}
-
 }, {urls: ['<all_urls>'], types: ['main_frame']}, ['responseHeaders']);
-
-//
-//chrome.webRequest.onHeadersReceived.addListener(function (deets) {
-//      var url = deets.url;
-//      var timemap, timegate, original;
-//      var headers = deets.responseHeaders;
-//      var mementoDateTimeHeader;
-//      var linkHeaderAsString;
-//
-//      // Enumerate through the HTTP response headers to grab those related to Memento (if applicable)
-//      for (var headerI = 0; headerI < headers.length; headerI++) {
-//         if (headers[headerI].name == 'Memento-Datetime') {
-//            mementoDateTimeHeader = headers[headerI].value;
-//         } else if (headers[headerI].name == 'Link') {
-//            linkHeaderAsString = headers[headerI].value;
-//         }
-//      }
-//
-//      if (debug) {
-//         console.log('Checking ' + url);
-//         console.log(headers);
-//      }
-//
-//      if(mementoDateTimeHeader){
-//         chrome.tabs.query({
-//            'active': true,
-//            'currentWindow': true
-//         }, function (tabs) {
-//            chrome.tabs.sendMessage(tabs[0].id, {
-//               'method': 'viewingAMemento'
-//            });
-//         });
-//         return;
-//      }
-//
-//      if (linkHeaderAsString) {
-//         if (debug) {
-//            console.log('A link header exists:');
-//            console.log(linkHeaderAsString);
-//         }
-//         chrome.storage.local.get('timemaps', function (tms) {
-//            //check if we have the timemap in the cache
-//            //cover the first time we hit the cache(empty obj) or we have a cache but our url is not in it
-//            if (Object.keys(tms).length === 0 || !tms.timemaps.hasOwnProperty(url)) {
-//               //no get the timemap from link header
-//               if (debug) {
-//                  console.log("We have no timemaps in cache or not present");
-//               }
-//               var linkHeaderHasMementoData = false;
-//               var tm = new Timemap(linkHeaderAsString);
-//               if (debug) {
-//                  console.log('TG?: ' + tm.timegate);
-//               }
-//
-//               if (tm.timegate) { //specified own TimeGate, query this
-//
-//                  findTMURI(tm.timegate, deets.tabId);
-//                  linkHeaderHasMementoData = true;
-//                  return;
-//               }
-//
-//               if (tm.timemap && !mementoDateTimeHeader) { // e.g., w3c wiki
-//                  fetchTimeMap(tm.timemap, deets.tabId);
-//                  console.log('#204: bar');
-//                  return;
-//               }
-//            } else {
-//               //we have some in the cache
-//               if (debug) {
-//                  console.log("We have some ", tms);
-//               }
-//               //tell content to displayUI
-//               chrome.tabs.query({
-//                  'active': true,
-//                  'currentWindow': true
-//               }, function (tabs) {
-//                  chrome.tabs.sendMessage(tabs[0].id, {
-//                     'method': 'displayUI'
-//                  });
-//               });
-//            }
-//         });
-//
-//      } else {
-//         //no link header timegate normal logic
-//         if (debug) {
-//            console.log('The current page did not send a link header');
-//         }
-//         chrome.tabs.query({
-//            'active': true,
-//            'currentWindow': true
-//         }, function (tabs) {
-//            chrome.tabs.sendMessage(tabs[0].id, {
-//               'method': 'displayUI'
-//            });
-//         });
-//      }
-//   },
-//   {urls: ['<all_urls>'], types: ['main_frame']}, ['responseHeaders']);
 
 function createTimemapFromURI(uri, tabId, accumulatedArrayOfTimemaps) {
    if (debug) {
