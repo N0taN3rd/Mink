@@ -1,4 +1,4 @@
-var debug = true;
+var debug = false;
 
 var tmDropdownString = '<option>&nbsp;&nbsp;&darr; Mink has TimeMaps for... &darr;</option>';
 var tmDropdownNoTimemapsString = '<option>--- No TimeMaps available ---</option>';
