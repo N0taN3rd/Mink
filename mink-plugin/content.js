@@ -250,6 +250,7 @@ function displayUIBasedOnContext() {
    if (debug) {
       console.log('displayUIBasedOnContext()');
       console.log(document.URL);
+	   
    }
    chrome.storage.local.get('timemaps', function (items) {
       var hasATimeMapInCache = items.timemaps && items.timemaps[document.URL];
